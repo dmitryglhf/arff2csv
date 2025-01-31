@@ -9,7 +9,7 @@ def convert_df(df: pd.DataFrame, file_name: str):
 
 
 if __name__ == "__main__":
-    st.set_page_config(page_title='arff2csv', page_icon='icon.png', 
+    st.set_page_config(page_title='arff2csv', page_icon="./src/icon.png", 
                        layout="centered", initial_sidebar_state="auto", 
                        menu_items=None)
 
