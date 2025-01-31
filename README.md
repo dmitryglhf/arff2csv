@@ -3,6 +3,7 @@
 <img src="./src/logo.png" alt="logo" width="150"/>
 
 ## Simple online .arff to .csv format converter.
+now in progress...
 </div>
 
 ## :zap: Quickstart
