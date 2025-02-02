@@ -1,15 +1,8 @@
 import pandas as pd
-from scipy.io.arff import loadarff 
+from scipy.io import arff
 import streamlit as st
-
-
-@st.cache_data
-def convert_df_to_csv(df: pd.DataFrame, file_name: str):
-    return df.to_csv(f"{file_name}.csv", index=False).encode("utf-8")
-
-
-def clear_upload_file_list():
-    st.session_state['uploaded_files'] = None
+import io
+import zipfile
 
 
 if __name__ == "__main__":
@@ -20,38 +13,61 @@ if __name__ == "__main__":
     st.header("Online converter :blue[.arff] to :green[.csv]", divider="gray")
 
     # Upload fules
+    if "uploader_key" not in st.session_state:
+        st.session_state["uploader_key"] = 1
+
     uploaded_files = st.file_uploader(
         "Choose a .arff file(s)", 
         accept_multiple_files=True,
         type='arff',
-        key='uploaded_files'
+        key=st.session_state["uploader_key"]
     )
 
-    output = []
+    # Result
+    zip_buffer = io.BytesIO()
+    conversion_complete = False
+
+    # Convertion
     if uploaded_files:
         convert, clear = st.columns(2)
+
+        # Convert button
         if convert.button("Convert", use_container_width=True):
-            try:
-                progress_text = "Operation in progress. Please wait."
-                my_bar = st.progress(0, text=progress_text)
-                for percent_complete, file in enumerate(uploaded_files):
-                    my_bar.progress(percent_complete + 1, text=progress_text)
-                    # arff_file = loadarff(file.getvalue())
-                    # df = pd.DataFrame(arff_file[0])
-                    # csv_file = convert_df_to_csv(df, file.name)
-                    # output.append(csv_file)
-                my_bar.empty()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_archive:
+                try:
+                    for uploaded_file in uploaded_files:
+                        # Read data and load as .arff
+                        file_content = uploaded_file.read().decode('utf-8')
+                        string_io = io.StringIO(file_content)
+                        data, meta = arff.loadarff(string_io)
 
+                        # Convert data to DataFrame
+                        df = pd.DataFrame(data)
 
-                text_contents = '''This is some text'''
-                st.download_button(
-                    "Download", 
-                    text_contents, 
-                    use_container_width=True
-                )
-                st.write(":green[Succes]")
-            except:
-                my_bar.empty()
-                st.write(":red[Failed]")
+                        # Convert to .csv and update archive
+                        csv = df.to_csv(index=False).encode('utf-8-sig')
+                        csv_filename = f"{uploaded_file.name.split('.')[0]}.csv"
+                        zip_archive.writestr(csv_filename, csv)
+                    
+                    conversion_complete = True
+                except Exception as e:
+                    st.error(f"Error with file {uploaded_file.name}: {e}")
+
+        # Clear button
         if clear.button("Clear files", use_container_width=True):
+            st.session_state["uploader_key"] += 1
+            conversion_complete = False
             st.rerun()
+
+        # Download results as archive
+        zip_buffer.seek(0)
+        st.download_button(
+            label="Download data as CSV",
+            use_container_width=True,
+            data=zip_buffer,
+            file_name="converted_files.zip",
+            mime="application/zip",
+            disabled=not(conversion_complete)
+        )
+        if conversion_complete:
+            st.success('All files successfully converted')
